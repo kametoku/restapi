@@ -4,7 +4,11 @@
   :license "MIT"
   :depends-on ("alexandria"
                "cl-ppcre"
-               "jonathan")
+               "dexador"
+               "jonathan"
+               "jose"
+               "log4cl"
+               "quri")
   :components ((:module "src"
                 :components
                 ((:file "restapi" :depends-on ("json"))
