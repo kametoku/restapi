@@ -54,15 +54,18 @@
 
 (defun %restapi (method server &rest args
                  &key path query token (parser 'parse-json) debug-restapi
+                   (content-type "application/json")
                  &allow-other-keys)
+  (remf args :content-type)
   (when (stringp path)
     (setf path (list path)))
   (let* ((uri (quri:uri (apply #'concatenate 'string server path)))
-         (header (list '(:content-type . "application/json")
-                       '(:accept . "application/json")
-                       (when token
-                         (cons :authorization
-                               (authorization-header token))))))
+         (header (nconc (when content-type
+                          (list (cons :content-type content-type)))
+                        (list (cons :accept "application/json"))
+                        (when token
+                          (list (cons :authorization
+                                      (authorization-header token)))))))
     (when query
       (setf (quri:uri-query-params uri) (ensure-query query)))
     (if debug-restapi
