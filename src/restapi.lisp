@@ -185,10 +185,12 @@
       (setf (gethash service *token-cache*) nil)
       (clrhash *token-cache*)))
 
-(defun call-api (service method url &rest args &key path config debug-restapi
+(defun call-api (service method url &rest args &key path token config debug-restapi
                  &allow-other-keys)
   (declare (ignorable path))
-  (let ((token (get-token service config :debug-restapi debug-restapi)))
+  (remf args :token)
+  (let ((token (or token
+                   (get-token service config :debug-restapi debug-restapi))))
     (apply #'restapi method url :token token args)))
 
 
