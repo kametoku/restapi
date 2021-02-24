@@ -8,6 +8,7 @@
            :json-array-p
            :json-object-p
            :*default-validate*
+           :*default-validate-not*
            :*default-value*
            :object-value
            :with-object-values
@@ -133,12 +134,21 @@
 
 (defvar *default-validate* nil)
 
-(defun validate-object-value (value validate)
-  (unless validate (setf validate *default-validate*))
-  (cond ((not validate))
-        ((functionp validate) (funcall validate value))
+(defvar *default-validate-not* nil)
+
+(defun %validate-object-value (value validate)
+  (cond ((functionp validate) (funcall validate value))
         ((listp validate) (member value validate :test #'equal))
         (t (equal value validate))))
+
+(defun validate-object-value (value validate validate-not)
+  (unless validate (setf validate *default-validate*))
+  (unless validate-not (setf validate-not *default-validate-not*))
+  (cond ((and validate validate-not)
+         (error "Cannot use arguments validate and validate-not simultaneously."))
+        (validate (%validate-object-value value validate))
+        (validate-not (not (%validate-object-value value validate-not)))
+        (t t)))
 
 (define-condition object-value-validation-error (error)
   ((key-path :initarg :key-path :reader key-path)
@@ -150,13 +160,13 @@
 (defvar *default-value* nil)
 
 (defun object-value (object key-path &key (default nil supplied-p-default)
-                                       validate verbatim)
+                                       validate validate-not verbatim)
   (unless (or default supplied-p-default)
     (setf default *default-value*))
   (let ((value (cond ((%object-value object key-path :verbatim verbatim))
                      ((functionp default) (funcall default key-path))
                      (t default))))
-    (unless (validate-object-value value validate)
+    (unless (validate-object-value value validate validate-not)
       (error 'object-value-validation-error :key-path key-path :value value))
     value))
     
@@ -174,6 +184,50 @@ variable ::= (variable-name key-path) | variable"
                             (apply #'list 'object-value gobject (cdr entry)))))
                 variable-list))
        ,@body)))
+
+(defmacro %with-object-values (variable-list (&key args (default '*default-value*))
+                               object &body body)
+  "(with-object-values (variable*) (keywords) object form*)
+variable ::= (variable-name key-path) | variable"
+  (let ((gobject (gensym))
+        (gdefault (gensym)))
+    `(let* ((,gobject ,object)
+            (,gdefault ,default)
+            (*default-value* ,(if args (quote 'not-exist) gdefault))
+            ,@(mapcar
+                (lambda (entry)
+                  (if (symbolp entry)
+                      `(,entry (object-value ,gobject ,(string entry)))
+                      `(,(car entry)
+                        ,(apply #'list 'object-value gobject (cdr entry)))))
+                variable-list)
+            ,@(when args
+                `((,args (nconc
+                          ,@(mapcar
+                             (lambda (entry)
+                               (let* ((sym (if (symbolp entry) entry (nth 0 entry))))
+                                 `(if (eql ,sym 'not-exist)
+                                      (setf ,sym ,gdefault)
+                                      (list ,(intern (string sym) :keyword) ,sym))))
+                             variable-list))))))
+       (declare (ignorable ,gdefault))
+       ,@(when args `((declare (ignorable ,args))))
+       ,@body)))
+
+(defmacro with-object-values (variable-list-and-options object &body body)
+  "(with-object-values (variable* option) object form*)
+variable ::= (variable-name key-path [[option*]]) | variable
+option ::= {:arg arg} | {:default default-value}
+variable-option ::= {:default default-value} |
+                    {:validate validator} |
+                    {:validate-not validator} |
+                    {:vervatim boolean}"
+  (let* ((options (member-if #'keywordp variable-list-and-options))
+         (variable-list (butlast variable-list-and-options (length options))))
+    (destructuring-bind (&rest rest &key args default)
+        options
+      (declare (ignorable args default))
+      `(%with-object-values ,variable-list ,rest ,object ,@body))))
 
 ;; (defmacro with-object-values* (binds &body body)
 ;;   (if (null binds)
