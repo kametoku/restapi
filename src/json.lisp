@@ -160,7 +160,8 @@
 (defvar *default-value* nil)
 
 (defun object-value (object key-path &key (default nil supplied-p-default)
-                                       validate validate-not verbatim)
+                                       validate validate-not verbatim
+                                       parser)
   (unless (or default supplied-p-default)
     (setf default *default-value*))
   (let ((value (cond ((%object-value object key-path :verbatim verbatim))
@@ -168,7 +169,9 @@
                      (t default))))
     (unless (validate-object-value value validate validate-not)
       (error 'object-value-validation-error :key-path key-path :value value))
-    value))
+    (if (and parser (not (equal value default)))
+        (funcall parser value)
+        value)))
     
 (defmacro with-object-values (variable-list object &body body)
   "(with-object-values (variable*) object form*)
