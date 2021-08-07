@@ -173,20 +173,20 @@
         (funcall parser value)
         value)))
     
-(defmacro with-object-values (variable-list object &body body)
-  "(with-object-values (variable*) object form*)
-variable ::= (variable-name key-path) | variable"
-  (let ((gobject (gensym)))
-    `(let* ((,gobject ,object)
-            ,@(mapcar
-                (lambda (entry)
-                  (if (symbolp entry)
-                      (list entry
-                            (list 'object-value gobject (string entry)))
-                      (list (nth 0 entry)
-                            (apply #'list 'object-value gobject (cdr entry)))))
-                variable-list))
-       ,@body)))
+;; (defmacro with-object-values (variable-list object &body body)
+;;   "(with-object-values (variable*) object form*)
+;; variable ::= (variable-name key-path) | variable"
+;;   (let ((gobject (gensym)))
+;;     `(let* ((,gobject ,object)
+;;             ,@(mapcar
+;;                 (lambda (entry)
+;;                   (if (symbolp entry)
+;;                       (list entry
+;;                             (list 'object-value gobject (string entry)))
+;;                       (list (nth 0 entry)
+;;                             (apply #'list 'object-value gobject (cdr entry)))))
+;;                 variable-list))
+;;        ,@body)))
 
 (defmacro %with-object-values (variable-list (&key args (default '*default-value*))
                                object &body body)
@@ -210,7 +210,7 @@ variable ::= (variable-name key-path) | variable"
                              (lambda (entry)
                                (let* ((sym (if (symbolp entry) entry (nth 0 entry))))
                                  `(if (eql ,sym 'not-exist)
-                                      (setf ,sym ,gdefault)
+                                      (progn (setf ,sym ,gdefault) nil)
                                       (list ,(intern (string sym) :keyword) ,sym))))
                              variable-list))))))
        (declare (ignorable ,gdefault))
