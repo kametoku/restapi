@@ -5,8 +5,14 @@
   (:export :camel-case
            :parse
            :to-json
-           :json-array-p
-           :json-object-p
+           :json-type
+           :array-p
+           :false-p
+           :null-p
+           :number-p
+           :object-p
+           :string-p
+           :true-p
            :*default-validate*
            :*default-validate-not*
            :*default-value*
@@ -56,23 +62,49 @@
 (defmethod jojo:%to-json ((_ (eql '[])))
   (jojo:%to-json nil))
 
-(defun json-type (object)
-  (cond ((listp object)
-         (if (keywordp (car object)) :object :array))
-        ((numberp object) :number)
-        ((stringp object) :string)
-        ((eql object t) :true)
-        ((eql object 'false) :false)
-        ((eql object 'null) :null)
-        ((eql object '{}) :object)
-        ((eql object nil) :array)
-        ((eql object '[]) :array)))
+(defun json-type (value)
+  "Returns the type of JSON value as a keyword.
+The retrun value could be :array, :false, :null, :number, :object,
+:string, or :true.
+If VALUE is not a valid, it returns nil."
+  (cond ((listp value)
+         (if (keywordp (car value)) :object :array))
+        ((numberp value) :number)
+        ((stringp value) :string)
+        ((eql value t) :true)
+        ((eql value 'false) :false)
+        ((eql value 'null) :null)
+        ((eql value '{}) :object)
+        ((eql value nil) :array)
+        ((eql value '[]) :array)))
 
-(defun json-array-p (object)
-  (eql (json-type object) :array))
+(defun array-p (value)
+  "Non-nil if VALUE is an array."
+  (eql (json-type value) :array))
 
-(defun json-object-p (object)
-  (eql (json-type object) :object))
+(defun false-p (value)
+  "Non-nil if VALUE is false."
+  (eql (json-type value) :false))
+
+(defun null-p (value)
+  "Non-nil if VALUE is null."
+  (eql (json-type value) :null))
+
+(defun number-p (value)
+  "Non-nil if VALUE is a number."
+  (eql (json-type value) :number))
+
+(defun object-p (value)
+  "Non-nil if VALUE is an object."
+  (eql (json-type value) :object))
+
+(defun string-p (value)
+  "Non-nil if VALUE is a string."
+  (eql (json-type value) :string))
+
+(defun true-p (value)
+  "Non-nil if VALUE is true."
+  (eql (json-type value) :true))
 
 (defun index (key)
   ;; "[1]" => 1, "[]" => 0, "[foo]" => "foo" nil, "[name=AbcD]" => "AbcD" :|name|,
